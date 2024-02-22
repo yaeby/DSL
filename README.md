@@ -1,1 +1,2 @@
 # DSL
+Image manipulation DSL
