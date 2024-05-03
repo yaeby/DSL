@@ -1,0 +1,7 @@
+(load x test.jpg)
+(let x1 = (x - 125))
+(save x1 test_x1.png)
+(let x2 = (x - 100 mode=a))
+(save x2 test_x2.png)
+(let x3 = (x / 2))
+(save x3 test_x3.png)
