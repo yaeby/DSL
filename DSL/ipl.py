@@ -102,8 +102,9 @@ def imgSub(img1, img2):
                 img1[r,c,d] = subMin0(img1[r,c,d], img2[r,c,d])
     return img1
 
-
-
+'''
+Interpreter
+'''
 def interpreter(s):
     if   s.data == 'number':
         return int(s.children[0])
@@ -157,7 +158,7 @@ def interpreter(s):
 
 def run_ipl(code):
     ast = parser.parse(code)
-    # print(ast.pretty())
+    print(ast.pretty())
     for s in ast.children:
         interpreter(s)
 
