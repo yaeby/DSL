@@ -189,14 +189,8 @@ def load_pkl(fname):
     """
     if not os.path.isfile(fname):
         raise ValueError('File {} does not exist.'.format(fname))
-
-    if sys.version_info[0] < 3:
-        # Python 2
-        with open(fname, 'rb') as f:
-            data = pickle.load(f)
-    else:
-        # Python 3
-        with open(fname, 'rb') as f:
-            data = pickle.load(f, encoding='latin1')
+ 
+    with open(fname, 'rb') as f:
+        data = pickle.load(f, encoding='latin1')
 
     return data
