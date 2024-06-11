@@ -89,5 +89,23 @@ class ImageManipulationListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ImageManipulationParser#funcDef.
+    def enterFuncDef(self, ctx:ImageManipulationParser.FuncDefContext):
+        pass
+
+    # Exit a parse tree produced by ImageManipulationParser#funcDef.
+    def exitFuncDef(self, ctx:ImageManipulationParser.FuncDefContext):
+        pass
+
+
+    # Enter a parse tree produced by ImageManipulationParser#funcCall.
+    def enterFuncCall(self, ctx:ImageManipulationParser.FuncCallContext):
+        pass
+
+    # Exit a parse tree produced by ImageManipulationParser#funcCall.
+    def exitFuncCall(self, ctx:ImageManipulationParser.FuncCallContext):
+        pass
+
+
 
 del ImageManipulationParser

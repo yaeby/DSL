@@ -1,13 +1,14 @@
 grammar ImageManipulation;
 
-prog: command+ ;
+prog: (command | funcDef | funcCall)+ ;
 
 command: assignment
        | action
        | saveCommand ;
 
-assignment: ID '=' 'open' '(' STRING ')' ;
-action: ID '.' actionType ;
+assignment: ID '=' ('open' '(' STRING ')' | 'openFolder' '(' STRING ')') ;
+action: ID '.' actionType
+      | 'function' '(' STRING ')' ;
 
 actionType: 'flipX'
           | 'flipY'
@@ -16,7 +17,8 @@ actionType: 'flipX'
           | rotateCommand
           | 'saturation' '(' NUMBER ')'
           | 'brightness' '(' NUMBER ')'
-          | 'contrast' '(' NUMBER ')' ;
+          | 'contrast' '(' NUMBER ')'
+          | 'polynomial' ;
 
 resizeCommand: 'resize' '(' NUMBER ',' NUMBER ')' ;
 cropCommand: 'crop' '(' NUMBER ',' NUMBER ',' NUMBER ',' NUMBER ')' ;
@@ -24,10 +26,12 @@ rotateCommand: 'rotate' '(' NUMBER ')' ;
 
 saveCommand: ID '.' 'save' '(' STRING ')' ;
 
+funcDef: 'def' ID '(' ID ')' '{' (action | saveCommand)+ '}' ;
+funcCall: ID '(' STRING ')' ;
+
 ID      : [a-zA-Z_][a-zA-Z0-9_]* ;
 NUMBER  : [0-9]+ ;
-STRING  : '"' [a-zA-Z0-9./]+ '"' ;
-
+STRING  : '"' (~["\r\n])* '"' ;
 // Comment handling
 LINE_COMMENT  : '//' ~[\r\n]* -> skip; // Skips anything after '//' until the end of the line
 BLOCK_COMMENT : '/*' .*? '*/' -> skip; // Skips block comments delimited by /* and */

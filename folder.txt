@@ -1,0 +1,4 @@
+folder = openFolder("/home/liviu/DSL/Images")
+folder.brightness(1)
+folder.flipY
+folder.save("/home/liviu/DSL/ImagesOutput")
