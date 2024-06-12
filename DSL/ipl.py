@@ -139,7 +139,7 @@ def interpreter(s):
     elif s.data == 'load_image':
         im = Image.open(s.children[1])
         data = np.asarray(im)
-        # print(data.shape)
+        print(data.shape)
         Table[s.children[0]] = data
         return data
     elif s.data == 'save_image':
