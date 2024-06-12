@@ -1,11 +1,11 @@
 image1 = open("/home/liviu/DSL/flower.jpg")
 
-//image1.flipY
+image1.flipY
 image1.saturation(2)
 image1.brightness(1)
 image1.contrast(2)
 
-//image1.resize(300, 300)
+image1.resize(2000, 1500)
 image1.crop(800, 600, 1600, 1200)
 image1.rotate(45)
 
@@ -14,5 +14,10 @@ image1.rotate(45)
     line
     comment
 */
+// Single line Comment
 
 image1.save("/home/liviu/DSL/output.jpg")
+
+
+
+

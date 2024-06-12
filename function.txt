@@ -1,10 +1,9 @@
-/* def manipulate(img):
+def manipulate(img){
     img.saturation(2)
     img.brightness(1)
     img.contrast(2)
-    img.save("manipulated_image.jpg")
+}
 
-manipulate("/home/liviu/DSL/flower.jpg") */
-
-img = open("/home/liviu/DSL/flower.jpg")
-img.polynomial
+image = open("/home/liviu/DSL/flower.jpg")
+manipulate("image")
+image.polynomial

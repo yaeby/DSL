@@ -1,95 +1,72 @@
-import sys
-import os
-import cv2  # Import cv2
-import numpy as np
 from antlr4 import *
-from PIL import Image
 from ImageManipulationLexer import ImageManipulationLexer
 from ImageManipulationParser import ImageManipulationParser
 from ImageManipulationListener import ImageManipulationListener
+from PIL import Image
+import rotate
+from colors import adjust_saturation, adjust_brightness, adjust_contrast
+import os
+import cv2
+import sys
 from Image import edge_detection
-from Coordinates import pixels_coordinates, adjacent_pixels as get_adjacent_pixels, get_upper_edge_pixels, sort_pixels_by_adjacency, get_all_edges
+from Coordinates import pixels_coordinates, adjacent_pixels, get_upper_edge_pixels, sort_pixels_by_adjacency, get_all_edges
 from Functions import rotate_points, functions
-
-# Add the directory containing your modules to the Python path
-module_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'From-Image-to-Functions'))
-if module_path not in sys.path:
-    sys.path.append(module_path)
 
 class ImageManipulationCommandListener(ImageManipulationListener):
     def __init__(self):
         self.images = {}
         self.folders = {}
-        self.functions = {}
-        self.folder_images = {}
-        print("Initialized ImageManipulationCommandListener")
 
     def exitAssignment(self, ctx):
-        assignment_type = ctx.getChild(2).getText()
-        id = ctx.ID().getText()
-        path = ctx.STRING().getText().strip('"')
-        
-        if assignment_type == 'open':
-            try:
-                self.images[id] = Image.open(path)
-                print(f"Opened image: {path}")
-            except IOError as e:
-                print(f"Error opening image {path}: {e}")
-        elif assignment_type == 'openFolder':
-            try:
-                self.folders[id] = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(('.png', '.jpg', '.jpeg'))]
-                self.folder_images[id] = {img_path: Image.open(img_path) for img_path in self.folders[id]}
-                print(f"Opened folder: {path}")
-            except IOError as e:
-                print(f"Error opening folder {path}: {e}")
+        image_id = ctx.ID().getText()
+        file_path = ctx.STRING().getText().strip('"')
+        if os.path.isdir(file_path):
+            self.folders[image_id] = [os.path.join(file_path, f) for f in os.listdir(file_path) if os.path.isfile(os.path.join(file_path, f))]
+        else:
+            self.images[image_id] = Image.open(file_path)
 
     def exitAction(self, ctx):
-        id = ctx.ID().getText()
-        if id in self.images:
-            image = self.images[id]
-            self.images[id] = self.process_image(image, ctx)
-            print(f"Processed action for image: {id}")
-        elif id in self.folders:
-            for image_path, image in self.folder_images[id].items():
-                self.folder_images[id][image_path] = self.process_image(image, ctx)
-                print(f"Processed action for image in folder: {image_path}")
-
-    def process_image(self, image, ctx):
+        image_id = ctx.ID().getText()
         action_type = ctx.actionType().getText()
-        if 'saturation' in action_type or 'brightness' in action_type or 'contrast' in action_type:
-            factor = float(ctx.actionType().NUMBER().getText())
-            if 'saturation' in action_type:
-                return adjust_saturation(image, factor)
-            elif 'brightness' in action_type:
-                return adjust_brightness(image, factor)
-            elif 'contrast' in action_type:
-                return adjust_contrast(image, factor)
+        factor_ctx = ctx.actionType().NUMBER()
+        factor = float(factor_ctx.getText()) if factor_ctx else None
+
+        if image_id in self.images:
+            self.images[image_id] = self.apply_action(self.images[image_id], action_type, factor)
+        elif image_id in self.folders:
+            self.apply_action_to_folder(image_id, action_type, factor)
+
+    def apply_action(self, image, action_type, factor=None):
+        if 'saturation' in action_type:
+            return adjust_saturation(image, factor)
+        elif 'brightness' in action_type:
+            return adjust_brightness(image, factor)
+        elif 'contrast' in action_type:
+            return adjust_contrast(image, factor)
         elif action_type == 'flipX':
             return rotate.flipX(image)
         elif action_type == 'flipY':
             return rotate.flipY(image)
-        elif 'resize' in action_type:
-            width = int(ctx.actionType().NUMBER(0).getText())
-            height = int(ctx.actionType().NUMBER(1).getText())
-            return image.resize((width, height))
-        elif 'crop' in action_type:
-            left = int(ctx.actionType().NUMBER(0).getText())
-            top = int(ctx.actionType().NUMBER(1).getText())
-            right = int(ctx.actionType().NUMBER(2).getText())
-            bottom = int(ctx.actionType().NUMBER(3).getText())
-            return image.crop((left, top, right, bottom))
-        elif 'rotate' in action_type:
-            angle = float(ctx.actionType().NUMBER().getText())
-            return image.rotate(angle, expand=True)
         elif action_type == 'polynomial':
-            return self.apply_polynomial_transformation(image)
+            return self.apply_polynomial(image)
         return image
 
-    def apply_polynomial_transformation(self, image):
-        img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    def apply_action_to_folder(self, folder_id, action_type, factor=None):
+        image_paths = self.folders[folder_id]
+        for image_path in image_paths:
+            image = Image.open(image_path)
+            image = self.apply_action(image, action_type, factor)
+            image.save(image_path)
+
+    def apply_polynomial(self, image):
+        image_path = "temp_image.png"
+        image.save(image_path)
+        
+        img = cv2.imread(image_path)
         edge_detection(img)
+        
         pixel_coords = pixels_coordinates('final.png')
-        adj_pixels = get_adjacent_pixels(pixel_coords)
+        adj_pixels = adjacent_pixels(pixel_coords)
 
         result = []
         for edge in adj_pixels:
@@ -101,81 +78,79 @@ class ImageManipulationCommandListener(ImageManipulationListener):
         flattened_result = [edge for edges_group in result for edge in edges_group]
         points = rotate_points(flattened_result, 180)
         functions(points)
-
-        polynomial_image = Image.open('polynomial.jpg')
+        
+        polynomial_image = Image.open('final.png')
         return polynomial_image
 
+    def exitResizeCommand(self, ctx):
+        self.apply_resize_or_crop(ctx, 'resize')
+
+    def exitCropCommand(self, ctx):
+        self.apply_resize_or_crop(ctx, 'crop')
+
+    def apply_resize_or_crop(self, ctx, command_type):
+        action_context = ctx.parentCtx.parentCtx
+        image_id = action_context.ID().getText()
+
+        if command_type == 'resize':
+            width = int(ctx.NUMBER(0).getText())
+            height = int(ctx.NUMBER(1).getText())
+            if image_id in self.images:
+                self.images[image_id] = self.images[image_id].resize((width, height))
+            elif image_id in self.folders:
+                self.apply_resize_to_folder(image_id, width, height)
+        elif command_type == 'crop':
+            left = int(ctx.NUMBER(0).getText())
+            top = int(ctx.NUMBER(1).getText())
+            right = int(ctx.NUMBER(2).getText())
+            bottom = int(ctx.NUMBER(3).getText())
+            if image_id in self.images:
+                self.images[image_id] = self.images[image_id].crop((left, top, right, bottom))
+            elif image_id in self.folders:
+                self.apply_crop_to_folder(image_id, left, top, right, bottom)
+
+    def apply_resize_to_folder(self, folder_id, width, height):
+        image_paths = self.folders[folder_id]
+        for image_path in image_paths:
+            image = Image.open(image_path)
+            image = image.resize((width, height))
+            image.save(image_path)
+
+    def apply_crop_to_folder(self, folder_id, left, top, right, bottom):
+        image_paths = self.folders[folder_id]
+        for image_path in image_paths:
+            image = Image.open(image_path)
+            image = image.crop((left, top, right, bottom))
+            image.save(image_path)
+
+    def exitRotateCommand(self, ctx):
+        action_context = ctx.parentCtx.parentCtx
+        image_id = action_context.ID().getText()
+        angle = float(ctx.NUMBER().getText())
+        if image_id in self.images:
+            self.images[image_id] = self.images[image_id].rotate(angle, expand=True)
+        elif image_id in self.folders:
+            self.apply_rotate_to_folder(image_id, angle)
+
+    def apply_rotate_to_folder(self, folder_id, angle):
+        image_paths = self.folders[folder_id]
+        for image_path in image_paths:
+            image = Image.open(image_path)
+            image = image.rotate(angle, expand=True)
+            image.save(image_path)
+
     def exitSaveCommand(self, ctx):
-        id = ctx.ID().getText()
-        save_path = ctx.STRING().getText().strip('"')
-        if id in self.images:
-            image = self.images[id]
-            if image and save_path:
-                try:
-                    image.save(save_path)
-                    print(f"Saved image: {save_path}")
-                except IOError as e:
-                    print(f"Error saving image to {save_path}: {e}")
-        elif id in self.folders:
-            if save_path:
-                os.makedirs(save_path, exist_ok=True)
-                for image_path, image in self.folder_images[id].items():
-                    base_name = os.path.basename(image_path)
-                    new_image_path = os.path.join(save_path, base_name)
-                    image.save(new_image_path)
-                    print(f"Saved image: {new_image_path}")
-
-    def exitFuncDef(self, ctx):
-        func_name = ctx.ID(0).getText()
-        param_name = ctx.ID(1).getText()
-        actions = ctx.action() + ctx.saveCommand()
-        self.functions[func_name] = (param_name, actions)
-        print(f"Defined function: {func_name}")
-        
-    def exitFuncCall(self, ctx):
-        func_name = ctx.ID().getText()
-        image_path = ctx.STRING().getText().strip('"')
-        if func_name in self.functions:
-            param_name, actions = self.functions[func_name]
-            if os.path.isdir(image_path):
-                temp_folder_id = "temp_folder"
-                self.folders[temp_folder_id] = [os.path.join(image_path, f) for f in os.listdir(image_path) if f.endswith(('.png', '.jpg', '.jpeg'))]
-                self.folder_images[temp_folder_id] = {img_path: Image.open(img_path) for img_path in self.folders[temp_folder_id]}
-                for action in actions:
-                    if isinstance(action, ImageManipulationParser.ActionContext):
-                        action_ctx = action
-                        action_ctx.children[0].symbol.text = temp_folder_id
-                        self.exitAction(action_ctx)
-                    elif isinstance(action, ImageManipulationParser.SaveCommandContext):
-                        save_ctx = action
-                        save_ctx.children[0].symbol.text = temp_folder_id
-                        self.exitSaveCommand(save_ctx)
-            else:
-                temp_image_id = "temp_image"
-                self.images[temp_image_id] = Image.open(image_path)
-                for action in actions:
-                    if isinstance(action, ImageManipulationParser.ActionContext):
-                        action_ctx = action
-                        action_ctx.children[0].symbol.text = temp_image_id
-                        self.exitAction(action_ctx)
-                    elif isinstance(action, ImageManipulationParser.SaveCommandContext):
-                        save_ctx = action
-                        save_ctx.children[0].symbol.text = temp_image_id
-                        self.exitSaveCommand(save_ctx)
-
-                if param_name and param_name in self.images:
-                    image = self.images[param_name]
-                    for action in actions:
-                        if isinstance(action, ImageManipulationParser.ActionContext):
-                            image = self.process_image(image, action)
-
-                    if image:
-                        save_path = f"{func_name}.jpg"
-                        try:
-                            image.save(save_path)
-                            print(f"Generated image saved as: {save_path}")
-                        except IOError as e:
-                            print(f"Error saving generated image to {save_path}: {e}")
+        image_id = ctx.ID().getText()
+        file_path = ctx.STRING().getText().strip('"')
+        if image_id in self.images:
+            self.images[image_id].save(file_path)
+        elif image_id in self.folders:
+            if not os.path.exists(file_path):
+                os.makedirs(file_path)
+            image_paths = self.folders[image_id]
+            for idx, image_path in enumerate(image_paths):
+                image = Image.open(image_path)
+                image.save(os.path.join(file_path, f'image_{idx}.jpg'))
 
 def run_commands_from_file(file_path):
     with open(file_path, 'r') as file:
@@ -192,6 +167,10 @@ def run_commands_from_file(file_path):
     walker.walk(listener, tree)
 
 if __name__ == "__main__":
-    print("Running DSL commands...")
-    run_commands_from_file('/home/liviu/DSL/function.txt')
-    print("Completed.")
+    if len(sys.argv) != 2:
+        print("Usage: python Main.py <filepath>")
+    else:
+        filepath = sys.argv[1]
+        print("Running DSL commands...")
+        run_commands_from_file(filepath)
+        print("Completed.")

@@ -7,8 +7,7 @@ command: assignment
        | saveCommand ;
 
 assignment: ID '=' ('open' '(' STRING ')' | 'openFolder' '(' STRING ')') ;
-action: ID '.' actionType
-      | 'function' '(' STRING ')' ;
+action: ID '.' actionType ;
 
 actionType: 'flipX'
           | 'flipY'
@@ -31,7 +30,8 @@ funcCall: ID '(' STRING ')' ;
 
 ID      : [a-zA-Z_][a-zA-Z0-9_]* ;
 NUMBER  : [0-9]+ ;
-STRING  : '"' (~["\r\n])* '"' ;
+STRING  : '"' (~["\r\n])* '"' ; // Match any character except double quotes, line feeds, or carriage returns
+
 // Comment handling
 LINE_COMMENT  : '//' ~[\r\n]* -> skip; // Skips anything after '//' until the end of the line
 BLOCK_COMMENT : '/*' .*? '*/' -> skip; // Skips block comments delimited by /* and */
